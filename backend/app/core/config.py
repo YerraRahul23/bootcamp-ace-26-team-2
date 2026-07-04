@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: Optional[str] = None
     GEMINI_MODEL: str = "gemini-2.0-flash"
 
+    # Dataset
+    CUAD_DATASET_PATH: str = "data/CUAD"
+
     # Vector store
     FAISS_INDEX_PATH: str = "app/vectorstore/faiss_index"
 
