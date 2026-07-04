@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
 
+    # Embeddings
+    EMBEDDING_MODEL: str = "models/gemini-embedding-001"
+    EMBEDDING_BATCH_SIZE: int = 32
+
     # Vector store
     FAISS_INDEX_PATH: str = "app/vectorstore/faiss_index"
 
