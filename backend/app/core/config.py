@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     # Dataset
     CUAD_DATASET_PATH: str = "data/CUAD"
 
+    # Chunking
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 200
+
     # Vector store
     FAISS_INDEX_PATH: str = "app/vectorstore/faiss_index"
 
