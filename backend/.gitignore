@@ -37,3 +37,7 @@ htmlcov/
 
 # Logs
 *.log
+
+# Local dataset
+data/CUAD/*
+!data/CUAD/.gitkeep
