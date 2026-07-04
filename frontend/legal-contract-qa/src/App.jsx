@@ -8,7 +8,11 @@ import AnimatedBackground from './components/ui/AnimatedBackground';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import DashboardLayout from './layouts/DashboardLayout';
 import Dashboard from './pages/Dashboard';
+import Documents from './pages/Documents';
+import ChatAssistant from './pages/ChatAssistant';
+import Profile from './pages/Profile';
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -21,7 +25,7 @@ function ScrollToTop() {
 function AppRoutes() {
   const location = useLocation();
   const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
-  const isDashboard = location.pathname === '/dashboard';
+  const isDashboard = location.pathname.startsWith('/dashboard');
 
   return (
     <>
@@ -31,11 +35,19 @@ function AppRoutes() {
       {!isAuthPage && !isDashboard && <Navbar />}
 
       <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
+        <Routes
+          location={location}
+          key={location.pathname.startsWith('/dashboard') ? '/dashboard' : location.pathname}
+        >
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<DashboardLayout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="documents" element={<Documents />} />
+            <Route path="chat" element={<ChatAssistant />} />
+            <Route path="profile" element={<Profile />} />
+          </Route>
         </Routes>
       </AnimatePresence>
 
