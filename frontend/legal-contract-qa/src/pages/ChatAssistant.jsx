@@ -109,9 +109,7 @@ export default function ChatAssistant() {
     const question = input.trim();
     if (!question || loading) return;
 
-    const contextQuestion = selectedDoc
-      ? `[Regarding "${selectedDoc.name}"] ${question}`
-      : question;
+    const contextQuestion = question;
 
     const userMsg = { role: 'user', content: question, document: selectedDoc || undefined };
     addMessage(activeId, userMsg);
@@ -120,10 +118,15 @@ export default function ChatAssistant() {
     setLoading(true);
 
     try {
-      const data = await sendMessage(contextQuestion);
+      if (selectedDoc && !selectedDoc.documentId) {
+        console.warn('Selected document is missing documentId. Re-upload the document to enable document-scoped retrieval.');
+      }
+      const data = await sendMessage(contextQuestion, selectedDoc?.documentId);
       const assistantMsg = {
         role: 'assistant',
         content: data.answer ?? data.response ?? 'No response received.',
+        sources: data.sources || [],
+        model: data.model || '',
       };
       addMessage(activeId, assistantMsg);
       refreshConversations();
@@ -264,14 +267,34 @@ export default function ChatAssistant() {
                         </div>
                       )}
                       <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                          msg.role === 'user'
-                            ? 'bg-primary text-white rounded-tr-md'
-                            : 'bg-card border border-border rounded-tl-md text-text'
-                        }`}
-                      >
-                        {msg.content}
-                      </div>
+                          className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                            msg.role === 'user'
+                              ? 'bg-primary text-white rounded-tr-md'
+                              : 'bg-card border border-border rounded-tl-md text-text'
+                          }`}
+                        >
+                          {msg.content}
+                          {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                            <div className="mt-3 pt-3 border-t border-border">
+                              <p className="text-[11px] font-medium text-muted mb-2">Sources</p>
+                              <div className="space-y-1.5">
+                                {msg.sources.map((src, si) => (
+                                  <div key={si} className="text-[11px] bg-bg rounded-lg p-2 border border-border">
+                                    <div className="flex items-center justify-between gap-2 mb-0.5">
+                                      <span className="font-medium text-text truncate">
+                                        {src.metadata?.filename || 'Unknown'}
+                                      </span>
+                                      {src.metadata?.clause && (
+                                        <span className="text-muted-dark shrink-0">{src.metadata.clause}</span>
+                                      )}
+                                    </div>
+                                    <p className="text-muted-dark line-clamp-2">{src.chunk_text}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                     </div>
                   </motion.div>
                 ))}
@@ -304,6 +327,9 @@ export default function ChatAssistant() {
                 <span className="text-xs text-muted bg-card-hover rounded-md px-2.5 py-1 flex items-center gap-1.5">
                   <FileText className="w-3.5 h-3.5 text-primary" />
                   {selectedDoc.name}
+                  {!selectedDoc.documentId && (
+                    <span className="text-[10px] text-warning ml-1">(re-upload to scope queries)</span>
+                  )}
                   <button
                     onClick={handleRemoveDocument}
                     className="ml-1 text-muted-dark hover:text-text transition-colors"

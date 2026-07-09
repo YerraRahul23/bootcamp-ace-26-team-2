@@ -18,12 +18,14 @@ logger = logging.getLogger(__name__)
 
 # Metadata fields to preserve from each Document
 METADATA_FIELDS = [
+    "document_id",
     "filename",
     "relative_path",
     "dataset_name",
     "partition",
     "file_size",
     "load_timestamp",
+    "chunk_index",
 ]
 
 
@@ -50,7 +52,7 @@ class ChunkService:
             chunk_size=chunk_size,
             chunk_overlap=chunk_overlap,
             length_function=len,
-            separators=["\n\n", "\n", ".", " ", ""],
+            separators=["\n\n\n", "\n\n", "\n", ".", "!", "?", ";", " ", ""],
         )
         logger.info(
             "ChunkService initialized: chunk_size=%d, chunk_overlap=%d",
@@ -79,25 +81,32 @@ class ChunkService:
             logger.debug("Splitter returned no chunks for document: %s", document.id)
             return []
 
-        metadata = self._extract_metadata(document)
+        base_metadata = self._extract_metadata(document)
+        # Use document.document_id (upload UUID) when available, falling back
+        # to document.id (internal ID) for CUAD-sourced documents.
+        doc_id = document.document_id or document.id
         chunks = [
             Chunk(
                 id=str(uuid.uuid4()),
-                document_id=document.id,
+                document_id=doc_id,
                 chunk_index=idx,
                 text=text,
-                metadata=metadata,
+                metadata={**base_metadata, "chunk_index": idx},
             )
             for idx, text in enumerate(texts)
         ]
 
-        logger.debug(
-            "Document %s split into %d chunks (size=%d, overlap=%d)",
-            document.id,
+        logger.info(
+            "Document '%s' (%s) split into %d chunks (size=%d, overlap=%d)",
+            document.filename,
+            document.id[:8],
             len(chunks),
             self.chunk_size,
             self.chunk_overlap,
         )
+        if chunks:
+            logger.debug("  chunk[0] (%d chars): %.100s", len(chunks[0].text), chunks[0].text)
+            logger.debug("  chunk[-1] (%d chars): %.100s", len(chunks[-1].text), chunks[-1].text)
         return chunks
 
     def chunk_documents(self, documents: list[Document]) -> list[Chunk]:

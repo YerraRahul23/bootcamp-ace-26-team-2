@@ -33,8 +33,8 @@ class Settings(BaseSettings):
     CUAD_DATASET_PATH: str = "data/CUAD"
 
     # Chunking
-    CHUNK_SIZE: int = 1000
-    CHUNK_OVERLAP: int = 200
+    CHUNK_SIZE: int = 1500
+    CHUNK_OVERLAP: int = 300
 
     # Embeddings
     EMBEDDING_MODEL: str = "models/gemini-embedding-001"
@@ -46,6 +46,10 @@ class Settings(BaseSettings):
 
     # Retrieval
     RETRIEVAL_TOP_K: int = 5
+
+    # RAG / LLM Generation
+    GEMINI_TEMPERATURE: float = 0.3
+    GEMINI_MAX_TOKENS: int = 1024
 
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]

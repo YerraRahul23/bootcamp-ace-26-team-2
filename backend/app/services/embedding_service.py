@@ -28,7 +28,7 @@ class EmbeddingService:
     def __init__(
         self,
         embed_model=None,
-        model_name: str = "models/embedding-001",
+        model_name: str = settings.EMBEDDING_MODEL,
         batch_size: int = 32,
         api_key: str | None = None,
     ) -> None:
@@ -37,8 +37,8 @@ class EmbeddingService:
 
         Args:
             embed_model: An object with an ``embed_documents(texts)`` method.
-                         If None, ``GoogleGenerativeAIEmbeddings`` is used.
-            model_name: The embedding model identifier (default: models/embedding-001).
+                         If None, a local SentenceTransformer model is used.
+            model_name: The embedding model identifier.
             batch_size: Number of texts to embed in a single API call.
             api_key: Google API key. If None, falls back to the GEMINI_API_KEY env var.
         """
@@ -88,6 +88,7 @@ class EmbeddingService:
         Generate embeddings for a list of chunks with batching.
 
         Chunks with empty text are skipped and logged.
+        Transient errors (e.g. quota limits) are retried per batch.
 
         Args:
             chunks: List of Chunk objects to embed.
@@ -107,53 +108,95 @@ class EmbeddingService:
         if not valid_chunks:
             return []
 
-        texts = [c.text for c in valid_chunks]
-        all_vectors = self._embed_texts(texts)
+        embeddings: list[Embedding] = []
+        batch_skipped = 0
 
-        embeddings = [
-            self._build_embedding(chunk, vector)
-            for chunk, vector in zip(valid_chunks, all_vectors)
-        ]
+        for i in range(0, len(valid_chunks), self.batch_size):
+            batch = valid_chunks[i : i + self.batch_size]
+            batch_texts = [c.text for c in batch]
+            vectors = self._embed_texts(batch_texts)
+            if len(vectors) != len(batch):
+                logger.warning(
+                    "Batch %d-%d returned %d vectors for %d texts, skipping",
+                    i,
+                    min(i + self.batch_size, len(valid_chunks)),
+                    len(vectors),
+                    len(batch),
+                )
+                batch_skipped += len(batch)
+                continue
+            for chunk, vector in zip(batch, vectors):
+                embeddings.append(self._build_embedding(chunk, vector))
+
+        if batch_skipped:
+            logger.warning(
+                "Skipped %d chunks due to embedding failures",
+                batch_skipped,
+            )
 
         logger.info(
-            "Embedded %d chunks (batch_size=%d, skipped=%d)",
+            "Embedded %d chunks (batch_size=%d, skipped=%d, batch_errors=%d)",
             len(embeddings),
             self.batch_size,
             skipped,
+            batch_skipped,
         )
         return embeddings
 
-    def _embed_texts(self, texts: list[str]) -> list[list[float]]:
+    def _embed_texts(self, texts: list[str], max_retries: int = 5) -> list[list[float]]:
         """
-        Embed a list of texts in batches.
+        Embed a list of texts in batches with retry on failure.
 
         Args:
             texts: List of text strings to embed.
+            max_retries: Maximum retries per batch on transient errors.
 
         Returns:
             List of embedding vectors (same order as input).
         """
+        import time
+
         all_vectors: list[list[float]] = []
 
         for i in range(0, len(texts), self.batch_size):
             batch = texts[i : i + self.batch_size]
-            try:
-                batch_vectors = self._model.embed_documents(batch)
-                all_vectors.extend(batch_vectors)
-                logger.debug(
-                    "Embedded batch %d-%d of %d",
-                    i,
-                    min(i + self.batch_size, len(texts)),
-                    len(texts),
-                )
-            except Exception as e:
+            last_error: Exception | None = None
+
+            for attempt in range(max_retries):
+                try:
+                    batch_vectors = self._model.embed_documents(batch)
+                    all_vectors.extend(batch_vectors)
+                    logger.debug(
+                        "Embedded batch %d-%d of %d",
+                        i,
+                        min(i + self.batch_size, len(texts)),
+                        len(texts),
+                    )
+                    last_error = None
+                    break
+                except Exception as e:
+                    last_error = e
+                    wait = 2 ** attempt
+                    logger.warning(
+                        "Failed to embed batch %d-%d (attempt %d/%d): %s. "
+                        "Retrying in %ds...",
+                        i,
+                        min(i + self.batch_size, len(texts)),
+                        attempt + 1,
+                        max_retries,
+                        e,
+                        wait,
+                    )
+                    time.sleep(wait)
+
+            if last_error is not None:
                 logger.error(
-                    "Failed to embed batch %d-%d: %s",
+                    "Failed to embed batch %d-%d after %d retries: %s",
                     i,
                     min(i + self.batch_size, len(texts)),
-                    e,
+                    max_retries,
+                    last_error,
                 )
-                raise
 
         return all_vectors
 
