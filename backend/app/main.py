@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.config import settings
 from app.core.logging import setup_logging
-from app.api.routes import health, chat
+from app.api.routes import health, chat, retrieval
 
 # Configure logging on startup
 setup_logging()
@@ -36,6 +36,7 @@ app.add_middleware(
 # Register API routers
 app.include_router(health.router)
 app.include_router(chat.router)
+app.include_router(retrieval.router)
 
 
 @app.on_event("startup")

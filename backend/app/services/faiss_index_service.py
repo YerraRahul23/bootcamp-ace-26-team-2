@@ -53,6 +53,7 @@ class FaissIndexService:
         self._index: faiss.Index | None = None
         self._embedding_ids: list[str] = []
         self._chunk_ids: list[str] = []
+        self._chunk_texts: list[str] = []
         self._document_ids: list[str] = []
         self._metadata_list: list[dict] = []
 
@@ -60,13 +61,19 @@ class FaissIndexService:
     # Build
     # ------------------------------------------------------------------
 
-    def build_index(self, embeddings: list[Embedding]) -> None:
+    def build_index(
+        self,
+        embeddings: list[Embedding],
+        chunk_texts: list[str] | None = None,
+    ) -> None:
         """
         Build a FAISS index from a list of Embedding objects.
 
         Args:
             embeddings: Non-empty list of Embedding objects.
                         All must have the same vector dimension.
+            chunk_texts: Optional parallel list of chunk text strings.
+                         If omitted, empty strings are stored.
 
         Raises:
             ValueError: If the list is empty or dimensions are inconsistent.
@@ -89,6 +96,7 @@ class FaissIndexService:
 
         self._embedding_ids = [e.id for e in embeddings]
         self._chunk_ids = [e.chunk_id for e in embeddings]
+        self._chunk_texts = chunk_texts if chunk_texts is not None else [""] * len(embeddings)
         self._document_ids = [e.document_id for e in embeddings]
         self._metadata_list = [e.metadata for e in embeddings]
 
@@ -120,6 +128,7 @@ class FaissIndexService:
         metadata = {
             "embedding_ids": self._embedding_ids,
             "chunk_ids": self._chunk_ids,
+            "chunk_texts": self._chunk_texts,
             "document_ids": self._document_ids,
             "metadata_list": self._metadata_list,
         }
@@ -161,6 +170,7 @@ class FaissIndexService:
         instance._index = index
         instance._embedding_ids = metadata["embedding_ids"]
         instance._chunk_ids = metadata["chunk_ids"]
+        instance._chunk_texts = metadata.get("chunk_texts", [""] * len(metadata["chunk_ids"]))
         instance._document_ids = metadata["document_ids"]
         instance._metadata_list = metadata["metadata_list"]
 
@@ -200,6 +210,7 @@ class FaissIndexService:
                 SearchResult(
                     chunk_id=self._chunk_ids[idx],
                     document_id=self._document_ids[idx],
+                    chunk_text=self._chunk_texts[idx],
                     score=float(dist),
                     metadata=self._metadata_list[idx],
                 )

@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     FAISS_INDEX_PATH: str = "app/vectorstore/faiss_index"
     FAISS_METADATA_PATH: str = "app/vectorstore/faiss_metadata.pkl"
 
+    # Retrieval
+    RETRIEVAL_TOP_K: int = 5
+
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 
