@@ -58,8 +58,22 @@ export async function fetchDocuments() {
 }
 
 export async function uploadDocument(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/upload', {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errBody = await response.json().catch(() => ({}));
+    throw new Error(errBody.detail || `Upload failed (HTTP ${response.status})`);
+  }
+
+  const result = await response.json();
+
   const docs = getDocuments();
-  
   const rawSize = file.size;
   const size = file.size > 1024 * 1024
     ? (file.size / 1024 / 1024).toFixed(2) + ' MB'
@@ -67,6 +81,7 @@ export async function uploadDocument(file) {
 
   const doc = {
     id: nextId(),
+    documentId: result.document_id,
     name: file.name || `Contract - ${new Date().toLocaleDateString()}`,
     uploadedAt: new Date().toLocaleDateString('en-US', {
       year: 'numeric',
@@ -78,6 +93,8 @@ export async function uploadDocument(file) {
     rawSize,
     size,
     url: file ? URL.createObjectURL(file) : '#',
+    chunks: result.chunks,
+    embeddings: result.embeddings,
   };
 
   docs.unshift(doc);

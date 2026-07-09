@@ -264,3 +264,83 @@ def test_retrieve_document_id_matches():
 
     result = service.retrieve("test")
     assert result.results[0].document_id == doc_id
+
+
+# ------------------------------------------------------------------
+# Metadata filter pass-through
+# ------------------------------------------------------------------
+
+
+def test_retrieve_with_metadata_filter():
+    doc_a_id = str(uuid.uuid4())
+    doc_b_id = str(uuid.uuid4())
+
+    embeddings = [
+        make_embedding([1.0, 0.0, 0.0, 0.0], document_id=doc_a_id,
+                       metadata={"document_id": doc_a_id, "filename": "a.txt"}),
+        make_embedding([0.0, 1.0, 0.0, 0.0], document_id=doc_b_id,
+                       metadata={"document_id": doc_b_id, "filename": "b.txt"}),
+    ]
+    chunk_texts = ["Doc A text.", "Doc B text."]
+    index_service = build_index(embeddings, chunk_texts)
+    embed_svc = make_embed_service()
+    service = RetrievalService(embed_service=embed_svc, index_service=index_service)
+
+    result = service.retrieve("test", metadata_filter={"document_id": doc_a_id})
+    assert len(result.results) == 1
+    assert result.results[0].document_id == doc_a_id
+
+
+def test_retrieve_with_metadata_filter_multiple_docs():
+    doc_ids = [str(uuid.uuid4()) for _ in range(3)]
+    embeddings = []
+    for i, did in enumerate(doc_ids):
+        embeddings.append(
+            make_embedding(
+                [float(i) / 10.0] * 4,
+                document_id=did,
+                metadata={"document_id": did, "filename": f"{i}.txt"},
+            )
+        )
+
+    index_service = build_index(embeddings, [f"Doc {i}." for i in range(3)])
+    embed_svc = make_embed_service()
+    service = RetrievalService(embed_service=embed_svc, index_service=index_service)
+
+    for did in doc_ids:
+        result = service.retrieve("test", metadata_filter={"document_id": did})
+        assert len(result.results) == 1
+        assert result.results[0].document_id == did
+
+
+def test_retrieve_cross_document_boundary():
+    """Retrieval with a document_id filter must NEVER return chunks
+    belonging to other documents, even when all docs are semantically similar."""
+    doc_ids = [str(uuid.uuid4()) for _ in range(3)]
+    embeddings = []
+    chunk_texts = []
+    for i, did in enumerate(doc_ids):
+        for j in range(4):  # 4 chunks per doc
+            embeddings.append(
+                make_embedding(
+                    [0.5 + i * 0.1 + j * 0.01] * 4,
+                    document_id=did,
+                    metadata={"document_id": did, "filename": f"doc_{i}.pdf"},
+                )
+            )
+            chunk_texts.append(f"Doc {i} chunk {j}.")
+
+    index_service = build_index(embeddings, chunk_texts)
+    embed_svc = make_embed_service()
+    service = RetrievalService(embed_service=embed_svc, index_service=index_service, top_k=10)
+
+    for target_did in doc_ids:
+        result = service.retrieve("test", metadata_filter={"document_id": target_did})
+        assert len(result.results) > 0, f"No results for {target_did}"
+        for r in result.results:
+            assert r.document_id == target_did, (
+                f"Cross-document leak: expected {target_did}, got {r.document_id}"
+            )
+        # All filenames should match the same document
+        filenames = {r.metadata.get("filename") for r in result.results}
+        assert len(filenames) == 1, f"Multiple filenames in filtered result: {filenames}"

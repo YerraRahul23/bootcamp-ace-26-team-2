@@ -230,6 +230,255 @@ def test_normalized_vector_has_unit_length():
 
 
 # ------------------------------------------------------------------
+# Append
+# ------------------------------------------------------------------
+
+
+def test_append_empty_index():
+    """Appending to an unbuilt service should build the index."""
+    embeddings = [
+        make_embedding([1.0, 0.0, 0.0, 0.0]),
+        make_embedding([0.0, 1.0, 0.0, 0.0]),
+    ]
+    service = FaissIndexService()
+    service.append_embeddings(embeddings)
+
+    assert service.is_built
+    assert service.size == 2
+
+
+def test_append_to_existing_index():
+    """Appending to an existing index should preserve old + new vectors."""
+    first = [
+        make_embedding([1.0, 0.0, 0.0, 0.0]),
+        make_embedding([0.0, 1.0, 0.0, 0.0]),
+    ]
+    second = [
+        make_embedding([0.0, 0.0, 1.0, 0.0]),
+        make_embedding([0.0, 0.0, 0.0, 1.0]),
+    ]
+    service = FaissIndexService()
+    service.build_index(first)
+    assert service.size == 2
+
+    service.append_embeddings(second)
+    assert service.size == 4
+
+    # All four vectors should be searchable
+    results = service.search([1.0, 0.0, 0.0, 0.0], top_k=4)
+    assert len(results) == 4
+
+
+def test_append_empty_list_raises():
+    service = FaissIndexService()
+    with pytest.raises(ValueError, match="empty"):
+        service.append_embeddings([])
+
+
+# ------------------------------------------------------------------
+# Metadata filter
+# ------------------------------------------------------------------
+
+
+def test_search_with_metadata_filter():
+    doc_a_id = str(uuid.uuid4())
+    doc_b_id = str(uuid.uuid4())
+
+    embeddings = [
+        make_embedding([1.0, 0.0, 0.0, 0.0], document_id=doc_a_id,
+                       metadata={"document_id": doc_a_id, "filename": "a.txt"}),
+        make_embedding([0.0, 1.0, 0.0, 0.0], document_id=doc_b_id,
+                       metadata={"document_id": doc_b_id, "filename": "b.txt"}),
+    ]
+    service = FaissIndexService()
+    service.build_index(embeddings)
+
+    # Filter by doc_a
+    results = service.search([0.9, 0.1, 0.0, 0.0], top_k=5, metadata_filter={"document_id": doc_a_id})
+    assert len(results) == 1
+    assert results[0].document_id == doc_a_id
+
+    # Filter by doc_b
+    results = service.search([0.9, 0.1, 0.0, 0.0], top_k=5, metadata_filter={"document_id": doc_b_id})
+    assert len(results) == 1
+    assert results[0].document_id == doc_b_id
+
+
+def test_search_with_metadata_filter_multiple_docs():
+    doc_ids = [str(uuid.uuid4()) for _ in range(3)]
+    embeddings = []
+    for i, did in enumerate(doc_ids):
+        embeddings.append(
+            make_embedding(
+                [float(i) / 10.0] * 4,
+                document_id=did,
+                metadata={"document_id": did, "filename": f"{i}.txt"},
+            )
+        )
+
+    service = FaissIndexService()
+    service.build_index(embeddings)
+
+    for did in doc_ids:
+        results = service.search([1.0, 0.0, 0.0, 0.0], top_k=5, metadata_filter={"document_id": did})
+        assert len(results) == 1
+        assert results[0].document_id == did
+
+
+# ------------------------------------------------------------------
+# document_exists
+# ------------------------------------------------------------------
+
+
+def test_document_exists():
+    did = str(uuid.uuid4())
+    emb = make_embedding([1.0, 0.0, 0.0, 0.0], document_id=did,
+                         metadata={"document_id": did})
+    service = FaissIndexService()
+    service.build_index([emb])
+
+    assert service.document_exists(did)
+    assert not service.document_exists("nonexistent-id")
+
+
+# ------------------------------------------------------------------
+# Cross-document boundary: metadata_filter must never leak
+# ------------------------------------------------------------------
+
+
+def test_search_metadata_filter_never_crosses_documents():
+    """With 3 documents in the index, filtering by one doc's ID must return
+    zero results from the other two documents."""
+    doc_ids = [str(uuid.uuid4()) for _ in range(3)]
+    embeddings = []
+    for i, did in enumerate(doc_ids):
+        for j in range(3):  # 3 chunks per document
+            embeddings.append(
+                make_embedding(
+                    [float(i + j * 0.1)] * 4,
+                    document_id=did,
+                    metadata={
+                        "document_id": did,
+                        "filename": f"doc_{i}.pdf",
+                        "chunk_index": j,
+                    },
+                )
+            )
+    service = FaissIndexService()
+    service.build_index(embeddings)
+    assert service.size == 9
+
+    for target_did in doc_ids:
+        results = service.search(
+            [1.0, 0.0, 0.0, 0.0],
+            top_k=9,  # request all
+            metadata_filter={"document_id": target_did},
+        )
+        # Every result must belong to the target document
+        for r in results:
+            assert r.document_id == target_did, (
+                f"Expected doc_id={target_did}, got {r.document_id}"
+            )
+        assert len(results) == 3  # exactly 3 chunks from the target doc
+
+
+def test_search_metadata_filter_multiple_filters():
+    """Multiple filter keys must all match for a result to pass."""
+    doc_id = str(uuid.uuid4())
+    embeddings = [
+        make_embedding(
+            [1.0, 0.0, 0.0, 0.0],
+            document_id=doc_id,
+            metadata={"document_id": doc_id, "filename": "a.pdf", "type": "nda"},
+        ),
+        make_embedding(
+            [0.0, 1.0, 0.0, 0.0],
+            document_id=doc_id,
+            metadata={"document_id": doc_id, "filename": "a.pdf", "type": "service"},
+        ),
+    ]
+    service = FaissIndexService()
+    service.build_index(embeddings)
+
+    results = service.search(
+        [1.0, 0.0, 0.0, 0.0],
+        top_k=5,
+        metadata_filter={"document_id": doc_id, "type": "nda"},
+    )
+    assert len(results) == 1
+    assert results[0].metadata.get("type") == "nda"
+
+
+# ------------------------------------------------------------------
+# MMR must never mix documents when metadata_filter is active
+# ------------------------------------------------------------------
+
+
+def test_mmr_never_mixes_documents():
+    """When metadata_filter restricts to one document, MMR must not
+    introduce chunks from other documents."""
+    doc_a = str(uuid.uuid4())
+    doc_b = str(uuid.uuid4())
+    embeddings = []
+    # 10 chunks from doc_a
+    for j in range(10):
+        embeddings.append(
+            make_embedding(
+                [0.9 - j * 0.05, 0.1, 0.0, 0.0],
+                document_id=doc_a,
+                metadata={"document_id": doc_a, "filename": "a.pdf"},
+            )
+        )
+    # 10 chunks from doc_b
+    for j in range(10):
+        embeddings.append(
+            make_embedding(
+                [0.1, 0.9 - j * 0.05, 0.0, 0.0],
+                document_id=doc_b,
+                metadata={"document_id": doc_b, "filename": "b.pdf"},
+            )
+        )
+
+    service = FaissIndexService()
+    service.build_index(embeddings)
+    assert service.size == 20
+
+    # Filter to doc_a with top_k=5
+    results = service.search(
+        [1.0, 0.0, 0.0, 0.0],
+        top_k=5,
+        use_mmr=True,
+        metadata_filter={"document_id": doc_a},
+    )
+    assert len(results) == 5
+    for r in results:
+        assert r.document_id == doc_a, f"MMR leaked doc_id={r.document_id}"
+        assert r.metadata.get("filename") == "a.pdf"
+
+
+def test_mmr_never_mixes_without_filter():
+    """Without metadata_filter, MMR deduplicates by filename, but each
+    result must still come from the correct document_id."""
+    doc_a = str(uuid.uuid4())
+    doc_b = str(uuid.uuid4())
+    embeddings = [
+        make_embedding([1.0, 0.0, 0.0, 0.0], document_id=doc_a,
+                       metadata={"document_id": doc_a, "filename": "a.pdf"}),
+        make_embedding([0.0, 1.0, 0.0, 0.0], document_id=doc_b,
+                       metadata={"document_id": doc_b, "filename": "b.pdf"}),
+    ]
+    service = FaissIndexService()
+    service.build_index(embeddings)
+
+    results = service.search([1.0, 0.0, 0.0, 0.0], top_k=5, use_mmr=True)
+    # Without filter, both docs can appear
+    assert len(results) == 2
+    doc_ids_found = {r.document_id for r in results}
+    assert doc_a in doc_ids_found
+    assert doc_b in doc_ids_found
+
+
+# ------------------------------------------------------------------
 # Save with no index
 # ------------------------------------------------------------------
 

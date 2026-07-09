@@ -123,6 +123,7 @@ class RetrievalService:
         self,
         query: str,
         top_k: int | None = None,
+        metadata_filter: dict | None = None,
     ) -> RetrievalResult:
         """
         Retrieve the top-k most relevant chunks for a query.
@@ -136,6 +137,8 @@ class RetrievalService:
         Args:
             query: The user's question.
             top_k: Override the default top-k for this call.
+            metadata_filter: Optional dict of {key: value} to restrict
+                             results to chunks matching those metadata values.
 
         Returns:
             A RetrievalResult with results and formatted context.
@@ -152,8 +155,24 @@ class RetrievalService:
         if not query_vector:
             return RetrievalResult(query=query, results=[], context="")
 
+        index_dim = self._index_service._index.d if self._index_service._index else 0
+        query_dim = len(query_vector)
+        if index_dim != query_dim:
+            logger.error(
+                "Dimension mismatch: query=%d, index=%d. "
+                "The FAISS index was built with a different embedding model. "
+                "Upload a new document to rebuild the index.",
+                query_dim,
+                index_dim,
+            )
+            return RetrievalResult(
+                query=query,
+                results=[],
+                context="",
+            )
+
         k = top_k or self._top_k
-        results = self._index_service.search(query_vector, top_k=k)
+        results = self._index_service.search(query_vector, top_k=k, metadata_filter=metadata_filter)
 
         context = self.format_context(results)
 
@@ -162,6 +181,9 @@ class RetrievalService:
             len(results),
             k,
         )
+        if results:
+            logger.debug("Top result: score=%.4f, chunk_text=%.100s", results[0].score, results[0].chunk_text)
+
         return RetrievalResult(query=query, results=results, context=context)
 
     # ------------------------------------------------------------------

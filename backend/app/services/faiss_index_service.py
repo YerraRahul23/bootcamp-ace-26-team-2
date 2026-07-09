@@ -107,6 +107,73 @@ class FaissIndexService:
         )
 
     # ------------------------------------------------------------------
+    # Append
+    # ------------------------------------------------------------------
+
+    def append_embeddings(
+        self,
+        embeddings: list[Embedding],
+        chunk_texts: list[str] | None = None,
+    ) -> None:
+        """
+        Append embeddings to an existing index, or build a new one if empty.
+
+        When the index already has vectors, normalizes the new vectors and
+        calls FAISS ``add()``, then extends all tracking lists so the
+        merged state is preserved on the next ``save()``.
+
+        Args:
+            embeddings: Non-empty list of Embedding objects.
+                        All must have the same vector dimension as the
+                        existing index (or, if empty, consistent with
+                        each other).
+            chunk_texts: Optional parallel list of chunk text strings.
+
+        Raises:
+            ValueError: If the list is empty.
+        """
+        if not embeddings:
+            raise ValueError("Cannot append an empty list of embeddings.")
+
+        vectors = np.array([e.vector for e in embeddings], dtype=np.float32)
+        vectors = _normalize(vectors)
+        new_texts = chunk_texts if chunk_texts is not None else [""] * len(embeddings)
+
+        if self._index is None or self._index.ntotal == 0:
+            dimension = len(embeddings[0].vector)
+            self._index = faiss.IndexFlatIP(dimension)
+            self._index.add(vectors)
+            self._embedding_ids = [e.id for e in embeddings]
+            self._chunk_ids = [e.chunk_id for e in embeddings]
+            self._chunk_texts = list(new_texts)
+            self._document_ids = [e.document_id for e in embeddings]
+            self._metadata_list = [e.metadata for e in embeddings]
+            logger.info(
+                "FAISS index built via append: dimension=%d, num_vectors=%d",
+                dimension,
+                len(embeddings),
+            )
+        else:
+            self._index.add(vectors)
+            self._embedding_ids.extend(e.id for e in embeddings)
+            self._chunk_ids.extend(e.chunk_id for e in embeddings)
+            self._chunk_texts.extend(new_texts)
+            self._document_ids.extend(e.document_id for e in embeddings)
+            self._metadata_list.extend(e.metadata for e in embeddings)
+            logger.info(
+                "FAISS index appended: total_vectors=%d",
+                self._index.ntotal,
+            )
+
+    def document_exists(self, document_id: str) -> bool:
+        """Return True if *document_id* exists anywhere in the index metadata."""
+        return document_id in self._document_ids
+
+    def get_unique_document_ids(self) -> set[str]:
+        """Return the set of all unique document IDs in the index."""
+        return set(self._document_ids)
+
+    # ------------------------------------------------------------------
     # Persistence
     # ------------------------------------------------------------------
 
@@ -181,13 +248,25 @@ class FaissIndexService:
     # Search
     # ------------------------------------------------------------------
 
-    def search(self, query_vector: list[float], top_k: int = 5) -> list[SearchResult]:
+    def search(
+        self,
+        query_vector: list[float],
+        top_k: int = 5,
+        use_mmr: bool = True,
+        mmr_lambda: float = 0.7,
+        metadata_filter: dict | None = None,
+    ) -> list[SearchResult]:
         """
         Search the index for the top-k most similar vectors.
 
         Args:
             query_vector: Query embedding vector.
             top_k: Number of results to return.
+            use_mmr: Whether to apply MMR diversity re-ranking.
+            mmr_lambda: MMR diversity parameter (0=pure diversity, 1=pure relevance).
+            metadata_filter: Optional dict of {key: value} to filter results.
+                             Only results whose metadata matches all key-value
+                             pairs are returned.
 
         Returns:
             List of SearchResult objects ordered by descending score.
@@ -196,27 +275,78 @@ class FaissIndexService:
         if self._index is None or self._index.ntotal == 0 or top_k <= 0:
             return []
 
-        k = min(top_k, self._index.ntotal)
+        candidate_k = min(top_k * 3, self._index.ntotal) if use_mmr else min(top_k, self._index.ntotal)
         query = np.array([query_vector], dtype=np.float32)
         query = _normalize(query)
 
-        distances, indices = self._index.search(query, k)
+        distances, indices = self._index.search(query, candidate_k)
 
-        results: list[SearchResult] = []
+        candidates: list[SearchResult] = []
         for dist, idx in zip(distances[0], indices[0]):
             if idx == -1:
                 continue
-            results.append(
-                SearchResult(
-                    chunk_id=self._chunk_ids[idx],
-                    document_id=self._document_ids[idx],
-                    chunk_text=self._chunk_texts[idx],
-                    score=float(dist),
-                    metadata=self._metadata_list[idx],
-                )
-            )
+
+            meta = self._metadata_list[idx]
+
+            if metadata_filter:
+                if not all(meta.get(k) == v for k, v in metadata_filter.items()):
+                    continue
+
+            candidates.append(SearchResult(
+                chunk_id=self._chunk_ids[idx],
+                document_id=self._document_ids[idx],
+                chunk_text=self._chunk_texts[idx],
+                score=float(dist),
+                metadata=meta,
+            ))
+
+        if use_mmr and len(candidates) > top_k:
+            results = self._mmr_select(candidates, query_vector, top_k, mmr_lambda)
+        else:
+            results = candidates[:top_k]
+
+        for i, r in enumerate(results):
+            logger.debug("  result[%d] score=%.4f chunk_id=%s text=%.80s", i, r.score, r.chunk_id, r.chunk_text)
 
         return results
+
+    @staticmethod
+    def _mmr_select(
+        candidates: list[SearchResult],
+        query_vector: list[float],
+        top_k: int,
+        mmr_lambda: float,
+    ) -> list[SearchResult]:
+        """Select diverse results using document-aware diversity.
+
+        Ensures at most one result per document in the top-k, then fills
+        remaining slots with the next-best from any document.  This is a
+        practical alternative to full vector-based MMR that doesn't require
+        storing raw vectors in memory.
+        """
+        if len(candidates) <= top_k:
+            return candidates
+
+        selected: list[SearchResult] = []
+        seen_files: set[str] = set()
+
+        # Round 1: pick the highest-scoring result per document
+        for c in candidates:
+            filename = c.metadata.get("filename", "")
+            if filename not in seen_files:
+                selected.append(c)
+                seen_files.add(filename)
+            if len(selected) >= top_k:
+                return selected
+
+        # Round 2: if slots remain, fill with the best remaining regardless of document
+        for c in candidates:
+            if c not in selected:
+                selected.append(c)
+            if len(selected) >= top_k:
+                break
+
+        return selected
 
     # ------------------------------------------------------------------
     # Properties
