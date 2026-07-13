@@ -24,8 +24,9 @@ env/
 Thumbs.db
 
 # Vector store (binary index files)
-app/vectorstore/*.faiss
+app/vectorstore/faiss_index
 app/vectorstore/*.pkl
+
 
 # Uploaded documents
 app/data/*
