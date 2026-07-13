@@ -223,6 +223,12 @@ class FaissIndexService:
         resolved_index = Path(index_path or settings.FAISS_INDEX_PATH)
         resolved_metadata = Path(metadata_path or settings.FAISS_METADATA_PATH)
 
+        logger.info(
+            "Attempting to load FAISS index from %s, metadata from %s",
+            resolved_index,
+            resolved_metadata,
+        )
+
         if not resolved_index.exists():
             raise FileNotFoundError(f"FAISS index file not found: {resolved_index}")
         if not resolved_metadata.exists():
@@ -241,7 +247,14 @@ class FaissIndexService:
         instance._document_ids = metadata["document_ids"]
         instance._metadata_list = metadata["metadata_list"]
 
-        logger.info("Index loaded from %s (size=%d)", resolved_index, index.ntotal)
+        logger.info(
+            "FAISS index loaded: path=%s, size=%d, dimension=%d, metadata_count=%d, has_chunk_texts=%s",
+            resolved_index,
+            index.ntotal,
+            index.d if hasattr(index, 'd') else 0,
+            len(instance._metadata_list),
+            bool(instance._chunk_texts and instance._chunk_texts[0]),
+        )
         return instance
 
     # ------------------------------------------------------------------
@@ -273,11 +286,18 @@ class FaissIndexService:
             Empty list if the index is empty or top_k <= 0.
         """
         if self._index is None or self._index.ntotal == 0 or top_k <= 0:
+            logger.info("FAISS search skipped: index_none=%s, ntotal=%d, top_k=%d",
+                         self._index is None, self._index.ntotal if self._index else 0, top_k)
             return []
 
         candidate_k = min(top_k * 3, self._index.ntotal) if use_mmr else min(top_k, self._index.ntotal)
         query = np.array([query_vector], dtype=np.float32)
         query = _normalize(query)
+
+        logger.info(
+            "FAISS search: query_dim=%d, top_k=%d, candidate_k=%d, index_size=%d, use_mmr=%s",
+            len(query_vector), top_k, candidate_k, self._index.ntotal, use_mmr,
+        )
 
         distances, indices = self._index.search(query, candidate_k)
 
@@ -308,6 +328,11 @@ class FaissIndexService:
         for i, r in enumerate(results):
             logger.debug("  result[%d] score=%.4f chunk_id=%s text=%.80s", i, r.score, r.chunk_id, r.chunk_text)
 
+        logger.info(
+            "FAISS search complete: %d candidates -> %d final results",
+            len(candidates),
+            len(results),
+        )
         return results
 
     @staticmethod
@@ -330,7 +355,6 @@ class FaissIndexService:
         selected: list[SearchResult] = []
         seen_files: set[str] = set()
 
-        # Round 1: pick the highest-scoring result per document
         for c in candidates:
             filename = c.metadata.get("filename", "")
             if filename not in seen_files:
@@ -339,7 +363,6 @@ class FaissIndexService:
             if len(selected) >= top_k:
                 return selected
 
-        # Round 2: if slots remain, fill with the best remaining regardless of document
         for c in candidates:
             if c not in selected:
                 selected.append(c)

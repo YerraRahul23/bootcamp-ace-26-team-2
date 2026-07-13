@@ -5,6 +5,12 @@ Initializes the FastAPI app, registers middleware (CORS),
 includes API routers, and configures logging.
 """
 
+import os
+
+# macOS: suppress OMP Error #15 caused by duplicate libomp loads
+# (FAISS + google-generativeai both load the OpenMP runtime).
+os.environ.setdefault("KMP_DUPLICATE_LIB_OK", "TRUE")
+
 import logging
 
 from fastapi import FastAPI
