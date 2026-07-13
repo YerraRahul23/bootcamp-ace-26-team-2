@@ -82,7 +82,11 @@ class RetrievalService:
             index_path=self._index_path,
             metadata_path=self._metadata_path,
         )
-        logger.info("FAISS index loaded (size=%d)", self._index_service.size)
+        logger.info(
+            "FAISS index loaded: size=%d, loaded=%s",
+            self._index_service.size,
+            self._index_service.is_built,
+        )
         return True
 
     @property
@@ -108,11 +112,16 @@ class RetrievalService:
             logger.warning("Cannot embed empty query")
             return []
 
+        logger.info("Generating embedding for query: '%s'", query[:80])
         vectors = self._embed_service._embed_texts([query.strip()])
         if not vectors or not vectors[0]:
             logger.error("Embedding returned empty vector for query")
             return []
 
+        logger.info(
+            "Embedding generated: dimension=%d",
+            len(vectors[0]),
+        )
         return vectors[0]
 
     # ------------------------------------------------------------------
@@ -153,10 +162,16 @@ class RetrievalService:
 
         query_vector = self.embed_query(query)
         if not query_vector:
+            logger.error("Query embedding failed, returning empty results")
             return RetrievalResult(query=query, results=[], context="")
 
         index_dim = self._index_service._index.d if self._index_service._index else 0
         query_dim = len(query_vector)
+        logger.info(
+            "Dimension check: query_dim=%d, index_dim=%d",
+            query_dim,
+            index_dim,
+        )
         if index_dim != query_dim:
             logger.error(
                 "Dimension mismatch: query=%d, index=%d. "

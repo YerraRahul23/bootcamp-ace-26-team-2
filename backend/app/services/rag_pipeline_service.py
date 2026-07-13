@@ -9,6 +9,7 @@ Coordinates the end-to-end Retrieval-Augmented Generation flow:
 """
 
 import logging
+import traceback
 from pathlib import Path
 
 from app.core.config import settings
@@ -118,13 +119,37 @@ class RAGPipelineService:
                 model=self._model_name,
             )
 
+        logger.info("Incoming request: query='%s', document_id=%s", question[:80], document_id)
+
         # Step 1: Retrieve relevant context
         metadata_filter = {"document_id": document_id} if document_id else None
         retrieval_result = self._retrieval.retrieve(question, metadata_filter=metadata_filter)
 
+        logger.info(
+            "Retrieval results: count=%d, context_len=%d",
+            len(retrieval_result.results),
+            len(retrieval_result.context),
+        )
+        if retrieval_result.results:
+            logger.info(
+                "Retrieved document IDs: %s",
+                [r.document_id for r in retrieval_result.results],
+            )
+
         # Step 2: Build the prompt
-        context = retrieval_result.context or "No relevant contract clauses were found."
+        if not retrieval_result.context:
+            logger.info("No relevant contract clauses found for query: '%s'", question[:80])
+            return RAGResponse(
+                query=question,
+                answer="I could not find any relevant contract information to answer your question. Please try rephrasing or ask about a different topic.",
+                context="",
+                sources=[],
+                model=self._model_name,
+            )
+
+        context = retrieval_result.context
         prompt = self._build_prompt(context, question)
+        logger.info("Prompt generated: length=%d chars", len(prompt))
 
         # Step 3: Generate answer
         answer = self._generate(prompt)
@@ -172,9 +197,23 @@ class RAGPipelineService:
         Returns:
             The generated answer text.
         """
+        logger.info(
+            "Gemini request: model=%s, prompt_len=%d chars",
+            self._model_name,
+            len(prompt),
+        )
         try:
             response = self._llm.generate_content(prompt)
+            logger.info(
+                "Gemini response: received=True, length=%d chars",
+                len(response.text) if hasattr(response, 'text') else 0,
+            )
             return response.text
         except Exception as e:
-            logger.error("LLM generation failed: %s", e)
+            logger.error(
+                "LLM generation failed: model=%s, error=%s\n%s",
+                self._model_name,
+                e,
+                traceback.format_exc(),
+            )
             return "I encountered an error while generating the answer. Please try again."

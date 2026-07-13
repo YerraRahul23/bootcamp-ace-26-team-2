@@ -7,6 +7,7 @@ document_id scoping for multi-document retrieval.
 """
 
 import logging
+import traceback
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -86,8 +87,35 @@ async def ask_question(request: ChatRequest) -> ChatResponse:
                 detail="Document has not been indexed.",
             )
 
-    service = get_service()
-    result = service.answer(request.query, document_id=request.document_id)
+    logger.info(
+        "Chat request: query='%s', document_id=%s",
+        request.query[:80],
+        request.document_id,
+    )
+
+    try:
+        service = get_service()
+        result = service.answer(request.query, document_id=request.document_id)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Chat pipeline failed: %s\n%s",
+            e,
+            traceback.format_exc(),
+        )
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process your question: {str(e)}",
+        )
+
+    logger.info(
+        "Chat response: answer_len=%d, sources=%d, model=%s",
+        len(result.answer),
+        len(result.sources),
+        result.model,
+    )
+
     return ChatResponse(
         query=result.query,
         answer=result.answer,
