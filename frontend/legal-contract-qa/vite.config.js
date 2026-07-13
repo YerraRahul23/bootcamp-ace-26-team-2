@@ -10,6 +10,7 @@ export default defineConfig({
       '/retrieve': 'http://localhost:8000',
       '/index': 'http://localhost:8000',
       '/upload': 'http://localhost:8000',
+      '/documents': 'http://localhost:8000',
       '/health': 'http://localhost:8000',
     },
   },

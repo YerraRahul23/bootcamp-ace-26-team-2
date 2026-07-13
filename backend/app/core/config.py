@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     GEMINI_TEMPERATURE: float = 0.3
     GEMINI_MAX_TOKENS: int = 1024
 
+    # Supabase
+    SUPABASE_URL: str = ""
+    SUPABASE_SERVICE_ROLE_KEY: str = ""
+    SUPABASE_STORAGE_BUCKET: str = "contracts"
+
     # CORS
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173"]
 

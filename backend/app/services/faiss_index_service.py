@@ -247,6 +247,22 @@ class FaissIndexService:
         instance._document_ids = metadata["document_ids"]
         instance._metadata_list = metadata["metadata_list"]
 
+        # Guard: ensure metadata lists match the FAISS index size
+        meta_count = len(instance._metadata_list)
+        index_count = index.ntotal
+        if meta_count != index_count:
+            logger.warning(
+                "Metadata-index misalignment detected: metadata=%d entries, index=%d vectors. "
+                "Truncating metadata to match index.",
+                meta_count, index_count,
+            )
+            n = index_count
+            instance._embedding_ids = instance._embedding_ids[:n]
+            instance._chunk_ids = instance._chunk_ids[:n]
+            instance._chunk_texts = instance._chunk_texts[:n]
+            instance._document_ids = instance._document_ids[:n]
+            instance._metadata_list = instance._metadata_list[:n]
+
         logger.info(
             "FAISS index loaded: path=%s, size=%d, dimension=%d, metadata_count=%d, has_chunk_texts=%s",
             resolved_index,

@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from io import BytesIO
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from pydantic import BaseModel, Field
 
 from app.core.config import settings
@@ -20,7 +20,10 @@ from app.models.document import Document
 from app.services.chunk_service import ChunkService
 from app.services.embedding_service import EmbeddingService
 from app.services.faiss_index_service import FaissIndexService
+from app.api.deps import get_current_user
 from app.api.routes.chat import clear_service_cache
+from app.services.storage_service import StorageService
+from app.services.document_db_service import DocumentDBService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/upload", tags=["upload"])
@@ -41,7 +44,10 @@ class UploadResponse(BaseModel):
 
 
 @router.post("", response_model=UploadResponse)
-async def upload_document(file: UploadFile = File(...)) -> UploadResponse:
+async def upload_document(
+    file: UploadFile = File(...),
+    user_id: str = Depends(get_current_user),
+) -> UploadResponse:
     """Upload a PDF, extract text, index it, and append to the FAISS index."""
     if file.content_type not in ACCEPTED_TYPES and not file.filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are accepted")
@@ -52,7 +58,12 @@ async def upload_document(file: UploadFile = File(...)) -> UploadResponse:
     if not text.strip():
         raise HTTPException(status_code=400, detail="PDF appears to contain no extractable text")
 
+    logger.info("Authenticated user: %s", user_id)
     logger.info("Extracted %d characters from '%s' (%d pages)", len(text), file.filename, num_pages)
+
+    storage = StorageService()
+    storage_path = storage.upload_file(user_id, file.filename, contents)
+    logger.info("Uploaded to Supabase Storage: path=%s", storage_path)
 
     document_id = str(uuid.uuid4())
     upload_time = datetime.now(timezone.utc).isoformat()
@@ -113,6 +124,16 @@ async def upload_document(file: UploadFile = File(...)) -> UploadResponse:
     index_service.save()
 
     clear_service_cache()
+
+    db = DocumentDBService()
+    db.insert_document(
+        document_id=document_id,
+        user_id=user_id,
+        filename=file.filename,
+        storage_path=storage_path,
+        file_size=len(contents),
+    )
+    logger.info("Document record inserted for user=%s, document_id=%s", user_id, document_id)
 
     logger.info(
         "Upload complete: document_id=%s, filename=%s, chunks=%d, total_index_size=%d",

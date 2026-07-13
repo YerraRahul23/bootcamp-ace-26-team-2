@@ -1,21 +1,24 @@
-// Unified document service with LocalStorage persistence and metadata support
-const STORAGE_KEY = 'contractai_documents';
+import { supabase } from '../utils/supabase';
 
 const ACCEPTED_TYPES = [
   'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/x-pdf',
 ];
 
-const ACCEPTED_EXTENSIONS = ['.pdf', '.docx'];
+const ACCEPTED_EXTENSIONS = ['.pdf'];
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
-let idCounter = parseInt(localStorage.getItem('contractai_doc_counter') || '0', 10);
+let _documentsCache = [];
 
-function nextId() {
-  idCounter += 1;
-  localStorage.setItem('contractai_doc_counter', idCounter.toString());
-  return `doc_${idCounter}`;
+async function getAuthHeaders() {
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function getDocuments() {
+  return _documentsCache;
 }
 
 export function validateFile(file) {
@@ -26,7 +29,7 @@ export function validateFile(file) {
   if (!isAcceptedMime && !isAcceptedExt) {
     return {
       valid: false,
-      error: 'Unsupported file type. Only PDF and DOCX files are allowed.',
+      error: 'Unsupported file type. Only PDF files are allowed.',
     };
   }
 
@@ -40,29 +43,47 @@ export function validateFile(file) {
   return { valid: true, error: null };
 }
 
-export function getDocuments() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveDocuments(docs) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(docs));
-}
-
 export async function fetchDocuments() {
-  return getDocuments();
+  const headers = await getAuthHeaders();
+  const response = await fetch('/documents', { headers });
+
+  if (!response.ok) {
+    throw new Error('Failed to fetch documents');
+  }
+
+  const data = await response.json();
+
+  const mapped = data.map((doc) => ({
+    id: doc.id,
+    documentId: doc.document_id,
+    name: doc.filename,
+    uploadedAt: new Date(doc.uploaded_at).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    }),
+    createdAt: new Date(doc.uploaded_at).getTime(),
+    status: doc.indexed ? 'indexed' : 'processing',
+    rawSize: doc.file_size,
+    size:
+      doc.file_size > 1024 * 1024
+        ? (doc.file_size / 1024 / 1024).toFixed(2) + ' MB'
+        : (doc.file_size / 1024).toFixed(1) + ' KB',
+    chunks: 0,
+    embeddings: 0,
+  }));
+  _documentsCache = mapped;
+  return mapped;
 }
 
 export async function uploadDocument(file) {
   const formData = new FormData();
   formData.append('file', file);
 
+  const headers = await getAuthHeaders();
   const response = await fetch('/upload', {
     method: 'POST',
+    headers: { ...headers },
     body: formData,
   });
 
@@ -71,68 +92,24 @@ export async function uploadDocument(file) {
     throw new Error(errBody.detail || `Upload failed (HTTP ${response.status})`);
   }
 
-  const result = await response.json();
-
-  const docs = getDocuments();
-  const rawSize = file.size;
-  const size = file.size > 1024 * 1024
-    ? (file.size / 1024 / 1024).toFixed(2) + ' MB'
-    : (file.size / 1024).toFixed(1) + ' KB';
-
-  const doc = {
-    id: nextId(),
-    documentId: result.document_id,
-    name: file.name || `Contract - ${new Date().toLocaleDateString()}`,
-    uploadedAt: new Date().toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    }),
-    createdAt: Date.now(),
-    status: 'indexed',
-    rawSize,
-    size,
-    url: file ? URL.createObjectURL(file) : '#',
-    chunks: result.chunks,
-    embeddings: result.embeddings,
-  };
-
-  docs.unshift(doc);
-  saveDocuments(docs);
-  return doc;
+  return response.json();
 }
 
 export async function deleteDocument(id) {
-  let docs = getDocuments();
-  const doc = docs.find((d) => d.id === id);
-  if (doc?.url && doc.url.startsWith('blob:')) {
-    try {
-      URL.revokeObjectURL(doc.url);
-    } catch {
-      // Ignore if revoking fails or URL is invalid
-    }
+  const headers = await getAuthHeaders();
+  const response = await fetch(`/documents/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (!response.ok && response.status !== 404) {
+    const errBody = await response.json().catch(() => ({}));
+    throw new Error(errBody.detail || `Delete failed (HTTP ${response.status})`);
   }
-  docs = docs.filter((d) => d.id !== id);
-  saveDocuments(docs);
+
   return { success: true };
 }
 
 export async function renameDocument(id, name) {
-  const docs = getDocuments();
-  const updatedDocs = docs.map((doc) =>
-    doc.id === id ? { ...doc, name } : doc
-  );
-  saveDocuments(updatedDocs);
   return { success: true };
 }
-
-export function updateDocumentStatus(id, status) {
-  const docs = getDocuments();
-  const doc = docs.find((d) => d.id === id);
-  if (doc) {
-    doc.status = status;
-    saveDocuments(docs);
-  }
-  return docs;
-}
-
