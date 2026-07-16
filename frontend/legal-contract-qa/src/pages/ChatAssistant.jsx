@@ -3,6 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   MessageSquare, Send, Bot, User, Loader2, Plus, Trash2, Menu, X, Paperclip, Check, FileText,
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { sendMessage } from '../services/chat';
 import { fetchDocuments } from '../services/documents';
 import {
@@ -273,7 +275,40 @@ export default function ChatAssistant() {
                               : 'bg-card border border-border rounded-tl-md text-text'
                           }`}
                         >
-                          {msg.content}
+                          {msg.role === 'assistant' ? (
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-4 text-text" {...props} />,
+                                h2: ({node, ...props}) => <h2 className="text-base font-semibold mb-1.5 mt-3 text-text" {...props} />,
+                                h3: ({node, ...props}) => <h3 className="text-sm font-medium mb-1 mt-2 text-text" {...props} />,
+                                h4: ({node, ...props}) => <h4 className="text-sm font-medium mb-1 mt-2 text-text" {...props} />,
+                                p: ({node, ...props}) => <p className="text-sm leading-relaxed mb-2 last:mb-0" {...props} />,
+                                strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
+                                ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
+                                ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
+                                li: ({node, ...props}) => <li className="text-sm leading-relaxed" {...props} />,
+                                table: ({node, ...props}) => <div className="overflow-x-auto mb-3"><table className="w-full text-sm border-collapse" {...props} /></div>,
+                                thead: ({node, ...props}) => <thead className="bg-card-hover" {...props} />,
+                                th: ({node, ...props}) => <th className="border border-border px-3 py-2 text-left font-medium text-text" {...props} />,
+                                td: ({node, ...props}) => <td className="border border-border px-3 py-2 text-text" {...props} />,
+                                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-primary/30 pl-4 italic text-muted mb-2" {...props} />,
+                                code: ({node, className, children, ...props}) => {
+                                  const isInline = !className;
+                                  return isInline ? (
+                                    <code className="bg-card-hover text-primary text-xs px-1.5 py-0.5 rounded font-mono" {...props}>{children}</code>
+                                  ) : (
+                                    <pre className="bg-card-hover p-4 rounded-lg mb-3 overflow-x-auto text-xs font-mono border border-border"><code {...props}>{children}</code></pre>
+                                  );
+                                },
+                                hr: ({node, ...props}) => <hr className="my-3 border-border" {...props} />,
+                              }}
+                            >
+                              {msg.content}
+                            </ReactMarkdown>
+                          ) : (
+                            msg.content
+                          )}
                           {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-border">
                               <p className="text-[11px] font-medium text-muted mb-2">Sources</p>
