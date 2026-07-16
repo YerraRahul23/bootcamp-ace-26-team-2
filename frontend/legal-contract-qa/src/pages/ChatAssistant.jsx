@@ -6,6 +6,7 @@ import {
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { sendMessage } from '../services/chat';
+import MessageFeedback from '../components/ui/MessageFeedback';
 import { fetchDocuments } from '../services/documents';
 import {
   getConversations,
@@ -309,6 +310,7 @@ export default function ChatAssistant() {
                           ) : (
                             msg.content
                           )}
+                          {msg.role === 'assistant' && <MessageFeedback messageId={msg.id || i} />}
                           {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
                             <div className="mt-3 pt-3 border-t border-border">
                               <p className="text-[11px] font-medium text-muted mb-2">Sources</p>
