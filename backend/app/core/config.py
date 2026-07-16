@@ -49,7 +49,7 @@ class Settings(BaseSettings):
 
     # RAG / LLM Generation
     GEMINI_TEMPERATURE: float = 0.3
-    GEMINI_MAX_TOKENS: int = 1024
+    GEMINI_MAX_TOKENS: int = 8192
 
     # Supabase
     SUPABASE_URL: str = ""
