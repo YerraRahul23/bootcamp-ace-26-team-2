@@ -149,7 +149,7 @@ export default function ChatAssistant() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col h-full"
+      className="flex flex-col flex-1 min-h-0"
     >
       <div className="mb-6 flex items-center justify-between flex-shrink-0">
         <div>
@@ -228,7 +228,7 @@ export default function ChatAssistant() {
         </div>
 
         {/* Chat area */}
-        <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 flex flex-col min-h-0 min-w-0">
           {messages.length === 0 ? (
             <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
               <div className="w-16 h-16 rounded-2xl bg-card flex items-center justify-center mx-auto mb-4">
@@ -240,7 +240,7 @@ export default function ChatAssistant() {
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-6 space-y-4 pb-24">
               <AnimatePresence initial={false}>
                 {messages.map((msg, i) => (
                   <motion.div
@@ -269,7 +269,7 @@ export default function ChatAssistant() {
                         </div>
                       )}
                       <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                          className={`max-w-[75%] break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                             msg.role === 'user'
                               ? 'bg-primary text-white rounded-tr-md'
                               : 'bg-card border border-border rounded-tl-md text-text'
@@ -288,7 +288,7 @@ export default function ChatAssistant() {
                                 ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
                                 ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
                                 li: ({node, ...props}) => <li className="text-sm leading-relaxed" {...props} />,
-                                table: ({node, ...props}) => <div className="overflow-x-auto mb-3"><table className="w-full text-sm border-collapse" {...props} /></div>,
+                                table: ({node, ...props}) => <div className="overflow-x-auto max-w-full mb-3"><table className="w-full text-sm border-collapse" {...props} /></div>,
                                 thead: ({node, ...props}) => <thead className="bg-card-hover" {...props} />,
                                 th: ({node, ...props}) => <th className="border border-border px-3 py-2 text-left font-medium text-text" {...props} />,
                                 td: ({node, ...props}) => <td className="border border-border px-3 py-2 text-text" {...props} />,

@@ -13,7 +13,7 @@ export default function DashboardLayout() {
   }, [location]);
 
   return (
-    <div className="min-h-screen bg-surface flex">
+    <div className="h-screen overflow-hidden bg-surface flex">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -53,7 +53,7 @@ export default function DashboardLayout() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="flex-1 p-6 lg:p-8"
+          className="flex flex-col flex-1 p-6 lg:p-8 min-h-0 overflow-y-auto"
         >
           <Outlet />
         </motion.main>
