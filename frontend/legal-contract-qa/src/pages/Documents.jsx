@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback, Fragment } from 'react';
 import { motion } from 'framer-motion';
 import {
   Upload,
@@ -9,15 +9,18 @@ import {
   Pencil,
   RefreshCw,
   ChevronDown,
+  BarChart3,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import Button from '../components/ui/Button';
 import DashboardSection from '../components/dashboard/DashboardSection';
 import EmptyState from '../components/dashboard/EmptyState';
 import StatusBadge from '../components/documents/StatusBadge';
+import DocumentHealthCard from '../components/documents/DocumentHealthCard';
 import UploadModal from '../components/documents/UploadModal';
 import RenameModal from '../components/documents/RenameModal';
 import DeleteConfirmDialog from '../components/documents/DeleteConfirmDialog';
+import { fetchDocumentHealth } from '../services/documentHealth';
 import { useDebounce } from '../hooks/useDebounce';
 import {
   fetchDocuments,
@@ -101,6 +104,8 @@ export default function Documents() {
   const [uploadOpen, setUploadOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [renameTarget, setRenameTarget] = useState(null);
+  const [statsTarget, setStatsTarget] = useState(null);
+  const [healthData, setHealthData] = useState({});
   const mountedRef = useRef(true);
 
   const debouncedSearch = useDebounce(searchQuery, 300);
@@ -195,6 +200,19 @@ export default function Documents() {
     }
   }, []);
 
+  const handleViewDetails = useCallback(async (doc) => {
+    const faissId = doc.documentId || doc.id;
+    if (statsTarget === doc.id) {
+      setStatsTarget(null);
+      return;
+    }
+    setStatsTarget(doc.id);
+    if (!healthData[doc.id]) {
+      const data = await fetchDocumentHealth(faissId);
+      setHealthData((prev) => ({ ...prev, [doc.id]: data }));
+    }
+  }, [statsTarget, healthData]);
+
   const hasActiveFilters = documents.length > 0;
   const hasResults = processedDocuments.length > 0;
   const isFiltered = debouncedSearch.trim().length > 0;
@@ -288,55 +306,81 @@ export default function Documents() {
               </thead>
               <tbody className="divide-y divide-border">
                 {processedDocuments.map((doc) => (
-                  <tr
-                    key={doc.id}
-                    className="hover:bg-card-hover transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-8 h-8 rounded-lg bg-primary-light flex items-center justify-center shrink-0">
-                          <FileText className="w-4 h-4 text-primary" />
+                  <Fragment key={doc.id}>
+                    <tr
+                      className="hover:bg-card-hover transition-colors"
+                    >
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-primary-light flex items-center justify-center shrink-0">
+                            <FileText className="w-4 h-4 text-primary" />
+                          </div>
+                          <span className="text-sm font-medium truncate" title={doc.name}>
+                            {doc.name}
+                          </span>
                         </div>
-                        <span className="text-sm font-medium truncate" title={doc.name}>
-                          {doc.name}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-muted">{doc.uploadedAt}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={doc.status} />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="text-sm text-muted">{doc.size}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => handleView(doc)}
-                          className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
-                          aria-label="View document"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setRenameTarget(doc)}
-                          className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
-                          aria-label="Rename document"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget(doc)}
-                          className="p-2 text-muted hover:text-error rounded-lg hover:bg-error/5 transition-colors"
-                          aria-label="Delete document"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-muted">{doc.uploadedAt}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={doc.status} />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="text-sm text-muted">{doc.size}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => handleView(doc)}
+                            className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
+                            aria-label="View document"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setRenameTarget(doc)}
+                            className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
+                            aria-label="Rename document"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => setDeleteTarget(doc)}
+                            className="p-2 text-muted hover:text-error rounded-lg hover:bg-error/5 transition-colors"
+                            aria-label="Delete document"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleViewDetails(doc)}
+                            className={`p-2 rounded-lg transition-colors ${
+                              statsTarget === doc.id
+                                ? 'text-primary bg-primary-light'
+                                : 'text-muted hover:text-primary hover:bg-primary-light'
+                            }`}
+                            aria-label="View Details"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {statsTarget === doc.id && (
+                      <tr key={`${doc.id}-stats`}>
+                        <td colSpan={5} className="px-6 py-4 bg-bg/50">
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
+                          >
+                            <DocumentHealthCard document={doc} healthData={healthData[doc.id]} />
+                          </motion.div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 ))}
               </tbody>
             </table>
@@ -345,45 +389,69 @@ export default function Documents() {
           {/* Mobile cards */}
           <div className="md:hidden space-y-4">
             {processedDocuments.map((doc) => (
-              <div key={doc.id} className="glass rounded-2xl p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className="w-8 h-8 rounded-lg bg-primary-light flex items-center justify-center shrink-0">
-                      <FileText className="w-4 h-4 text-primary" />
+              <div key={doc.id}>
+                <div className="glass rounded-2xl p-4">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-lg bg-primary-light flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{doc.name}</p>
+                        <p className="text-xs text-muted">{doc.size}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{doc.name}</p>
-                      <p className="text-xs text-muted">{doc.size}</p>
+                    <StatusBadge status={doc.status} />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted">{doc.uploadedAt}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleView(doc)}
+                        className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
+                        aria-label="View document"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setRenameTarget(doc)}
+                        className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
+                        aria-label="Rename document"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setDeleteTarget(doc)}
+                        className="p-2 text-muted hover:text-error rounded-lg hover:bg-error/5 transition-colors"
+                        aria-label="Delete document"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleViewDetails(doc)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          statsTarget === doc.id
+                            ? 'text-primary bg-primary-light'
+                            : 'text-muted hover:text-primary hover:bg-primary-light'
+                        }`}
+                        aria-label="View Details"
+                      >
+                        <BarChart3 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                  <StatusBadge status={doc.status} />
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted">{doc.uploadedAt}</span>
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleView(doc)}
-                      className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
-                      aria-label="View document"
-                    >
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setRenameTarget(doc)}
-                      className="p-2 text-muted hover:text-text rounded-lg hover:bg-card-hover transition-colors"
-                      aria-label="Rename document"
-                    >
-                      <Pencil className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setDeleteTarget(doc)}
-                      className="p-2 text-muted hover:text-error rounded-lg hover:bg-error/5 transition-colors"
-                      aria-label="Delete document"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+                {statsTarget === doc.id && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="mt-2"
+                  >
+                    <DocumentHealthCard document={doc} healthData={healthData[doc.id]} />
+                  </motion.div>
+                )}
               </div>
             ))}
           </div>
