@@ -55,6 +55,7 @@ export default function DashboardLayout() {
           transition={{ duration: 0.2 }}
           className="flex flex-col flex-1 p-6 lg:p-8 min-h-0"
         >
+
           <Outlet />
         </motion.main>
       </div>
