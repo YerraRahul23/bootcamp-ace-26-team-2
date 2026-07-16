@@ -1,0 +1,50 @@
+INFO:     Will watch for changes in these directories: ['/Users/rahul/ml-training/bootcamp-ace-26-team-2/backend']
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [45427] using WatchFiles
+INFO:     Started server process [45450]
+INFO:     Waiting for application startup.
+2026-07-16 10:21:49 | INFO     | app.main:startup_event:54 | Application starting up...
+INFO:     Application startup complete.
+INFO:     127.0.0.1:64991 - "GET /documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64995 - "GET /documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65001 - "GET /documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65006 - "GET /documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65020 - "GET /documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65024 - "GET /documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65028 - "GET /documents HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65033 - "GET /documents HTTP/1.1" 200 OK
+2026-07-16 10:23:03 | INFO     | app.services.faiss_index_service:load:226 | Attempting to load FAISS index from app/vectorstore/faiss_index, metadata from app/vectorstore/faiss_metadata.pkl
+2026-07-16 10:23:03 | INFO     | app.services.faiss_index_service:load:266 | FAISS index loaded: path=app/vectorstore/faiss_index, size=128, dimension=3072, metadata_count=128, has_chunk_texts=True
+2026-07-16 10:23:03 | INFO     | app.api.routes.chat:ask_question:90 | Chat request: query='what are the payment methods', document_id=81c6c340-fe97-4211-bdbf-8d416a474877
+/Users/rahul/ml-training/bootcamp-ace-26-team-2/backend/.venv/lib/python3.12/site-packages/langchain_google_genai/chat_models.py:47: FutureWarning: 
+
+All support for the `google.generativeai` package has ended. It will no longer be receiving 
+updates or bug fixes. Please switch to the `google.genai` package as soon as possible.
+See README for more details:
+
+https://github.com/google-gemini/deprecated-generative-ai-python/blob/main/README.md
+
+  from google.generativeai.caching import CachedContent  # type: ignore[import]
+2026-07-16 10:23:06 | INFO     | app.services.embedding_service:__init__:59 | EmbeddingService initialized: model=models/gemini-embedding-001, batch_size=32
+2026-07-16 10:23:06 | INFO     | app.services.retrieval_service:__init__:60 | RetrievalService initialized: top_k=5, index_service=lazy-load
+2026-07-16 10:23:06 | INFO     | app.services.faiss_index_service:load:226 | Attempting to load FAISS index from app/vectorstore/faiss_index, metadata from app/vectorstore/faiss_metadata.pkl
+2026-07-16 10:23:06 | INFO     | app.services.faiss_index_service:load:266 | FAISS index loaded: path=app/vectorstore/faiss_index, size=128, dimension=3072, metadata_count=128, has_chunk_texts=True
+2026-07-16 10:23:06 | INFO     | app.services.retrieval_service:load_index:85 | FAISS index loaded: size=128, loaded=True
+2026-07-16 10:23:06 | INFO     | app.services.rag_pipeline_service:__init__:84 | RAGPipelineService initialized: model=gemini-2.5-flash, temperature=0.30, max_tokens=1024
+2026-07-16 10:23:06 | INFO     | app.services.rag_pipeline_service:answer:122 | Incoming request: query='what are the payment methods', document_id=81c6c340-fe97-4211-bdbf-8d416a474877
+2026-07-16 10:23:06 | INFO     | app.services.retrieval_service:embed_query:115 | Generating embedding for query: 'what are the payment methods'
+2026-07-16 10:23:07 | INFO     | app.services.retrieval_service:embed_query:121 | Embedding generated: dimension=3072
+2026-07-16 10:23:07 | INFO     | app.services.retrieval_service:retrieve:170 | Dimension check: query_dim=3072, index_dim=3072
+2026-07-16 10:23:07 | INFO     | app.services.faiss_index_service:search:313 | FAISS search: query_dim=3072, top_k=5, candidate_k=15, index_size=128, use_mmr=True
+2026-07-16 10:23:07 | INFO     | app.services.faiss_index_service:search:347 | FAISS search complete: 0 candidates -> 0 final results
+2026-07-16 10:23:07 | INFO     | app.services.retrieval_service:retrieve:194 | Retrieved 0 result(s) for query (top_k=5)
+2026-07-16 10:23:07 | INFO     | app.services.rag_pipeline_service:answer:128 | Retrieval results: count=0, context_len=0
+2026-07-16 10:23:07 | INFO     | app.services.rag_pipeline_service:answer:141 | No relevant contract clauses found for query: 'what are the payment methods'
+2026-07-16 10:23:07 | INFO     | app.api.routes.chat:ask_question:112 | Chat response: answer_len=129, sources=0, model=gemini-2.5-flash
+INFO:     127.0.0.1:65047 - "POST /chat/ask HTTP/1.1" 200 OK
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+2026-07-16 10:23:40 | INFO     | app.main:shutdown_event:60 | Application shutting down...
+INFO:     Application shutdown complete.
+INFO:     Finished server process [45450]
+INFO:     Stopping reloader process [45427]
