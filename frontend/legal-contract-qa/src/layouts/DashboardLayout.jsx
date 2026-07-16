@@ -25,7 +25,7 @@ export default function DashboardLayout() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col min-h-screen min-w-0">
+      <div className="flex-1 flex flex-col h-screen min-w-0 lg:ml-64">
         {/* Mobile header */}
         <header className="sticky top-0 z-20 bg-bg/80 backdrop-blur-xl border-b border-border lg:hidden">
           <div className="flex items-center justify-between h-16 px-4">
@@ -53,7 +53,7 @@ export default function DashboardLayout() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className="flex-1 p-6 lg:p-8"
+          className="flex-1 p-6 lg:p-8 flex flex-col min-h-0"
         >
           <Outlet />
         </motion.main>
