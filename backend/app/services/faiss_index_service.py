@@ -326,6 +326,7 @@ class FaissIndexService:
         distances, indices = self._index.search(query, candidate_k)
 
         candidates: list[SearchResult] = []
+        rejected = 0
         for dist, idx in zip(distances[0], indices[0]):
             if idx == -1:
                 continue
@@ -334,6 +335,16 @@ class FaissIndexService:
 
             if metadata_filter:
                 if not all(meta.get(k) == v for k, v in metadata_filter.items()):
+                    rejected += 1
+                    if rejected <= 5:
+                        logger.debug(
+                            "  filtered out: idx=%d doc_id=%s filter_key=%s filter_val=%s meta_val=%s",
+                            idx,
+                            self._document_ids[idx],
+                            list(metadata_filter.keys())[0],
+                            list(metadata_filter.values())[0],
+                            meta.get(list(metadata_filter.keys())[0]),
+                        )
                     continue
 
             candidates.append(SearchResult(
@@ -353,10 +364,20 @@ class FaissIndexService:
             logger.debug("  result[%d] score=%.4f chunk_id=%s text=%.80s", i, r.score, r.chunk_id, r.chunk_text)
 
         logger.info(
-            "FAISS search complete: %d candidates -> %d final results",
+            "FAISS search complete: raw=%d, rejected=%d, candidates=%d -> final=%d",
+            len(indices[0]),
+            rejected,
             len(candidates),
             len(results),
         )
+        for i, r in enumerate(results):
+            logger.info(
+                "  faiss_result[%d] score=%.4f document_id=%s filename=%s",
+                i,
+                r.score,
+                r.document_id,
+                r.metadata.get("filename", "unknown") if r.metadata else "unknown",
+            )
         return results
 
     @staticmethod

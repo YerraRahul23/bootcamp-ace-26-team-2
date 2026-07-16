@@ -348,12 +348,13 @@ class RetrievalService:
             len(semantic_candidates),
         )
         for i, r in enumerate(semantic_candidates):
-            logger.debug(
-                "  semantic[%d] score=%.4f chunk_id=%s text=%.100s",
+            logger.info(
+                "  semantic[%d] score=%.4f document_id=%s filename=%s chunk_id=%s",
                 i,
                 r.score,
+                r.document_id,
+                r.metadata.get("filename", "unknown") if r.metadata else "unknown",
                 r.chunk_id[:8],
-                r.chunk_text[:100].replace("\n", " "),
             )
 
         # --- Step 2: Keyword search (use expanded query terms) ---
@@ -369,12 +370,13 @@ class RetrievalService:
             len(keyword_candidates),
         )
         for i, r in enumerate(keyword_candidates):
-            logger.debug(
-                "  keyword[%d] score=%.3f chunk_id=%s text=%.100s",
+            logger.info(
+                "  keyword[%d] score=%.3f document_id=%s filename=%s chunk_id=%s",
                 i,
                 r.score,
+                r.document_id,
+                r.metadata.get("filename", "unknown") if r.metadata else "unknown",
                 r.chunk_id[:8],
-                r.chunk_text[:100].replace("\n", " "),
             )
 
         # --- Step 3: Merge + deduplicate ---
@@ -436,13 +438,13 @@ class RetrievalService:
                 seen.append("sem")
             if r.chunk_id in keyword_by_id:
                 seen.append("kw")
-            logger.debug(
-                "  final[%d] score=%.4f (%s) chunk_id=%s text=%.100s",
+            logger.info(
+                "  final[%d] score=%.4f (%s) document_id=%s filename=%s",
                 i,
                 r.score,
                 "+".join(seen),
-                r.chunk_id[:8],
-                r.chunk_text[:100].replace("\n", " "),
+                r.document_id,
+                r.metadata.get("filename", "unknown") if r.metadata else "unknown",
             )
 
         return results

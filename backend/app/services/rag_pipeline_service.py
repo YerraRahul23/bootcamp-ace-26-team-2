@@ -130,11 +130,20 @@ class RAGPipelineService:
             len(retrieval_result.results),
             len(retrieval_result.context),
         )
+        logger.info("Metadata filter: %s", metadata_filter)
         if retrieval_result.results:
             logger.info(
                 "Retrieved document IDs: %s",
                 [r.document_id for r in retrieval_result.results],
             )
+            for i, r in enumerate(retrieval_result.results):
+                logger.info(
+                    "  result[%d] document_id=%s filename=%s score=%.4f",
+                    i,
+                    r.document_id,
+                    r.metadata.get("filename", "unknown") if r.metadata else "unknown",
+                    r.score,
+                )
 
         # Step 2: Build the prompt
         if not retrieval_result.context:
@@ -204,9 +213,26 @@ class RAGPipelineService:
         )
         try:
             response = self._llm.generate_content(prompt)
+
+            finish_reason = None
+            token_counts = {}
+            if hasattr(response, 'candidates') and response.candidates:
+                finish_reason = response.candidates[0].finish_reason
+                logger.info("Gemini finish_reason: %s", finish_reason)
+            if hasattr(response, 'usage_metadata') and response.usage_metadata:
+                token_counts = {
+                    "prompt_tokens": response.usage_metadata.prompt_token_count,
+                    "candidates_tokens": response.usage_metadata.candidates_token_count,
+                    "total_tokens": response.usage_metadata.total_token_count,
+                }
+                logger.info("Gemini token usage: %s", token_counts)
+
+            answer_length = len(response.text) if hasattr(response, 'text') else 0
             logger.info(
-                "Gemini response: received=True, length=%d chars",
-                len(response.text) if hasattr(response, 'text') else 0,
+                "Gemini response: received=True, length=%d chars, finish_reason=%s, tokens=%s",
+                answer_length,
+                finish_reason,
+                token_counts,
             )
             return response.text
         except Exception as e:

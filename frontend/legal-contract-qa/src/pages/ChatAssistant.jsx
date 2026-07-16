@@ -242,9 +242,7 @@ export default function ChatAssistant() {
             </div>
           ) : (
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
-=======
-            <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 p-6 space-y-4 pb-24">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-6 space-y-4 pb-24">
 
               <AnimatePresence initial={false}>
                 {messages.map((msg, i) => (
@@ -256,11 +254,10 @@ export default function ChatAssistant() {
                     className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}
                   >
                     <div
-                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                        msg.role === 'user'
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${msg.role === 'user'
                           ? 'bg-primary/10 text-primary'
                           : 'bg-accent/10 text-accent'
-                      }`}
+                        }`}
                     >
                       {msg.role === 'user' ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                     </div>
@@ -274,68 +271,67 @@ export default function ChatAssistant() {
                         </div>
                       )}
                       <div
-                          className={`max-w-[75%] break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                            msg.role === 'user'
-                              ? 'bg-primary text-white rounded-tr-md'
-                              : 'bg-card border border-border rounded-tl-md text-text'
+                        className={`max-w-[75%] break-words rounded-2xl px-4 py-3 text-sm leading-relaxed ${msg.role === 'user'
+                            ? 'bg-primary text-white rounded-tr-md'
+                            : 'bg-card border border-border rounded-tl-md text-text'
                           }`}
-                        >
-                          {msg.role === 'assistant' ? (
-                            <ReactMarkdown
-                              remarkPlugins={[remarkGfm]}
-                              components={{
-                                h1: ({node, ...props}) => <h1 className="text-lg font-bold mb-2 mt-4 text-text" {...props} />,
-                                h2: ({node, ...props}) => <h2 className="text-base font-semibold mb-1.5 mt-3 text-text" {...props} />,
-                                h3: ({node, ...props}) => <h3 className="text-sm font-medium mb-1 mt-2 text-text" {...props} />,
-                                h4: ({node, ...props}) => <h4 className="text-sm font-medium mb-1 mt-2 text-text" {...props} />,
-                                p: ({node, ...props}) => <p className="text-sm leading-relaxed mb-2 last:mb-0" {...props} />,
-                                strong: ({node, ...props}) => <strong className="font-semibold" {...props} />,
-                                ul: ({node, ...props}) => <ul className="list-disc pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
-                                ol: ({node, ...props}) => <ol className="list-decimal pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
-                                li: ({node, ...props}) => <li className="text-sm leading-relaxed" {...props} />,
-                                table: ({node, ...props}) => <div className="overflow-x-auto max-w-full mb-3"><table className="w-full text-sm border-collapse" {...props} /></div>,
-                                thead: ({node, ...props}) => <thead className="bg-card-hover" {...props} />,
-                                th: ({node, ...props}) => <th className="border border-border px-3 py-2 text-left font-medium text-text" {...props} />,
-                                td: ({node, ...props}) => <td className="border border-border px-3 py-2 text-text" {...props} />,
-                                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-primary/30 pl-4 italic text-muted mb-2" {...props} />,
-                                code: ({node, className, children, ...props}) => {
-                                  const isInline = !className;
-                                  return isInline ? (
-                                    <code className="bg-card-hover text-primary text-xs px-1.5 py-0.5 rounded font-mono" {...props}>{children}</code>
-                                  ) : (
-                                    <pre className="bg-card-hover p-4 rounded-lg mb-3 overflow-x-auto text-xs font-mono border border-border"><code {...props}>{children}</code></pre>
-                                  );
-                                },
-                                hr: ({node, ...props}) => <hr className="my-3 border-border" {...props} />,
-                              }}
-                            >
-                              {msg.content}
-                            </ReactMarkdown>
-                          ) : (
-                            msg.content
-                          )}
-                          {msg.role === 'assistant' && <MessageFeedback messageId={msg.id || i} />}
-                          {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-border">
-                              <p className="text-[11px] font-medium text-muted mb-2">Sources</p>
-                              <div className="space-y-1.5">
-                                {msg.sources.map((src, si) => (
-                                  <div key={si} className="text-[11px] bg-bg rounded-lg p-2 border border-border">
-                                    <div className="flex items-center justify-between gap-2 mb-0.5">
-                                      <span className="font-medium text-text truncate">
-                                        {src.metadata?.filename || 'Unknown'}
-                                      </span>
-                                      {src.metadata?.clause && (
-                                        <span className="text-muted-dark shrink-0">{src.metadata.clause}</span>
-                                      )}
-                                    </div>
-                                    <p className="text-muted-dark line-clamp-2">{src.chunk_text}</p>
+                      >
+                        {msg.role === 'assistant' ? (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              h1: ({ node, ...props }) => <h1 className="text-lg font-bold mb-2 mt-4 text-text" {...props} />,
+                              h2: ({ node, ...props }) => <h2 className="text-base font-semibold mb-1.5 mt-3 text-text" {...props} />,
+                              h3: ({ node, ...props }) => <h3 className="text-sm font-medium mb-1 mt-2 text-text" {...props} />,
+                              h4: ({ node, ...props }) => <h4 className="text-sm font-medium mb-1 mt-2 text-text" {...props} />,
+                              p: ({ node, ...props }) => <p className="text-sm leading-relaxed mb-2 last:mb-0" {...props} />,
+                              strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
+                              ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
+                              ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-2 space-y-1 last:mb-0" {...props} />,
+                              li: ({ node, ...props }) => <li className="text-sm leading-relaxed" {...props} />,
+                              table: ({ node, ...props }) => <div className="overflow-x-auto max-w-full mb-3"><table className="w-full text-sm border-collapse" {...props} /></div>,
+                              thead: ({ node, ...props }) => <thead className="bg-card-hover" {...props} />,
+                              th: ({ node, ...props }) => <th className="border border-border px-3 py-2 text-left font-medium text-text" {...props} />,
+                              td: ({ node, ...props }) => <td className="border border-border px-3 py-2 text-text" {...props} />,
+                              blockquote: ({ node, ...props }) => <blockquote className="border-l-4 border-primary/30 pl-4 italic text-muted mb-2" {...props} />,
+                              code: ({ node, className, children, ...props }) => {
+                                const isInline = !className;
+                                return isInline ? (
+                                  <code className="bg-card-hover text-primary text-xs px-1.5 py-0.5 rounded font-mono" {...props}>{children}</code>
+                                ) : (
+                                  <pre className="bg-card-hover p-4 rounded-lg mb-3 overflow-x-auto text-xs font-mono border border-border"><code {...props}>{children}</code></pre>
+                                );
+                              },
+                              hr: ({ node, ...props }) => <hr className="my-3 border-border" {...props} />,
+                            }}
+                          >
+                            {msg.content}
+                          </ReactMarkdown>
+                        ) : (
+                          msg.content
+                        )}
+                        {msg.role === 'assistant' && <MessageFeedback messageId={msg.id || i} />}
+                        {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <p className="text-[11px] font-medium text-muted mb-2">Sources</p>
+                            <div className="space-y-1.5">
+                              {msg.sources.map((src, si) => (
+                                <div key={si} className="text-[11px] bg-bg rounded-lg p-2 border border-border">
+                                  <div className="flex items-center justify-between gap-2 mb-0.5">
+                                    <span className="font-medium text-text truncate">
+                                      {src.metadata?.filename || 'Unknown'}
+                                    </span>
+                                    {src.metadata?.clause && (
+                                      <span className="text-muted-dark shrink-0">{src.metadata.clause}</span>
+                                    )}
                                   </div>
-                                ))}
-                              </div>
+                                  <p className="text-muted-dark line-clamp-2">{src.chunk_text}</p>
+                                </div>
+                              ))}
                             </div>
-                          )}
-                        </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </motion.div>
                 ))}
@@ -411,20 +407,18 @@ export default function ChatAssistant() {
                               type="button"
                               disabled={disabled}
                               onClick={() => !disabled && handleSelectDocument(doc)}
-                              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-2.5 ${
-                                selectedDoc?.id === doc.id
+                              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-all duration-200 flex items-center gap-2.5 ${selectedDoc?.id === doc.id
                                   ? 'bg-primary-light text-primary'
                                   : disabled
-                                  ? 'text-muted-dark cursor-not-allowed opacity-50'
-                                  : 'text-text hover:bg-card-hover'
-                              }`}
+                                    ? 'text-muted-dark cursor-not-allowed opacity-50'
+                                    : 'text-text hover:bg-card-hover'
+                                }`}
                             >
                               <FileText className="w-4 h-4 shrink-0" />
                               <div className="flex-1 min-w-0">
                                 <span className="truncate block">{doc.name}</span>
-                                <span className={`text-[11px] ${
-                                  doc.status === 'indexed' ? 'text-success' : doc.status === 'processing' ? 'text-warning' : 'text-error'
-                                }`}>
+                                <span className={`text-[11px] ${doc.status === 'indexed' ? 'text-success' : doc.status === 'processing' ? 'text-warning' : 'text-error'
+                                  }`}>
                                   {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
                                 </span>
                               </div>
