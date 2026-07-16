@@ -149,7 +149,7 @@ export default function ChatAssistant() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="flex flex-col h-full"
+      className="flex flex-col flex-1 min-h-0"
     >
       <div className="mb-6 flex items-center justify-between flex-shrink-0">
         <div>
@@ -240,7 +240,7 @@ export default function ChatAssistant() {
               </p>
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4">
               <AnimatePresence initial={false}>
                 {messages.map((msg, i) => (
                   <motion.div
