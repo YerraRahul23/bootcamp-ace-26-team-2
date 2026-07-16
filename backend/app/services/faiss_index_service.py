@@ -273,6 +273,14 @@ class FaissIndexService:
         )
         return instance
 
+    def get_chunks_by_document_id(self, document_id: str) -> list[str]:
+        """Return all chunk texts belonging to the given document_id."""
+        return [
+            self._chunk_texts[i]
+            for i, doc_id in enumerate(self._document_ids)
+            if doc_id == document_id
+        ]
+
     # ------------------------------------------------------------------
     # Search
     # ------------------------------------------------------------------

@@ -14,6 +14,8 @@ from pydantic import BaseModel, Field
 from app.api.deps import get_current_user
 from app.services.document_db_service import DocumentDBService
 from app.services.storage_service import StorageService
+from app.services.faiss_index_service import FaissIndexService
+from app.services.contract_analysis_service import ContractAnalysisService
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/documents", tags=["documents"])
@@ -87,3 +89,48 @@ async def delete_document(
         )
 
     db.delete_document(document_id)
+
+
+class HealthResponse(BaseModel):
+    health_score: float = Field(description="Contract health score from 0.0 to 10.0")
+    risk_level: str = Field(description="One of: Low, Medium, High, Critical")
+    present_clauses: list[str] = Field(default_factory=list, description="Clauses detected in the document")
+    missing_clauses: list[str] = Field(default_factory=list, description="Important clauses not found")
+    recommendations: list[str] = Field(default_factory=list, description="Suggestions based on missing clauses")
+
+
+@router.get("/{document_id}/health", response_model=HealthResponse)
+async def document_health(document_id: str) -> HealthResponse:
+    """
+    Analyze a document's clause coverage and return a health assessment.
+
+    Retrieves the document's chunk texts from the vector index, runs
+    keyword-based clause detection, computes a health score, and
+    generates recommendations for missing clauses.
+    """
+    try:
+        idx_service = FaissIndexService.load()
+    except FileNotFoundError:
+        return HealthResponse(
+            health_score=0.0,
+            risk_level="Critical",
+            present_clauses=[],
+            missing_clauses=list(ContractAnalysisService.CLAUSE_PATTERNS.keys()),
+            recommendations=[],
+        )
+
+    chunks = idx_service.get_chunks_by_document_id(document_id)
+
+    if not chunks:
+        return HealthResponse(
+            health_score=0.0,
+            risk_level="Critical",
+            present_clauses=[],
+            missing_clauses=list(ContractAnalysisService.CLAUSE_PATTERNS.keys()),
+            recommendations=[],
+        )
+
+    analyzer = ContractAnalysisService()
+    result = analyzer.analyze(chunks)
+
+    return HealthResponse(**result)
