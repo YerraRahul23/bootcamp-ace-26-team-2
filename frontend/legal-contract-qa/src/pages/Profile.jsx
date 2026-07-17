@@ -90,12 +90,12 @@ function InfoRow({ label, value, icon: Icon }) {
   if (value === null || value === undefined || value === '') return null;
 
   return (
-    <div className="flex items-center justify-between py-3">
+    <div className="flex items-center justify-between py-3 gap-3">
       <div className="flex items-center gap-3 shrink-0">
         <Icon className="w-5 h-5 text-muted shrink-0" />
         <span className="text-sm text-muted whitespace-nowrap">{label}</span>
       </div>
-      <span className="text-sm font-medium text-text text-right min-w-0 ml-4">{displayValue}</span>
+      <span className="text-sm font-medium text-text text-right flex-1 min-w-0">{displayValue}</span>
     </div>
   );
 }
@@ -149,7 +149,11 @@ export default function Profile() {
     try {
       const profileData = await fetchProfile();
       if (!mountedRef.current) return;
-      setUser(profileData);
+      const processedData = {
+        ...profileData,
+        memberSince: profileData?.memberSince ? profileData.memberSince.split('T')[0] : profileData?.memberSince,
+      };
+      setUser(processedData);
     } catch {
       if (!mountedRef.current) return;
       setError(true);
