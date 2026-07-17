@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: legal-contract-qa
+    env: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: SUPABASE_URL
+        value: https://iqvspttbvqfueyqdseok.supabase.co
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: contracts
+      - key: VITE_SUPABASE_URL
+        value: https://iqvspttbvqfueyqdseok.supabase.co
+      - key: VITE_SUPABASE_ANON_KEY
+        value: sb_publishable_qOKnfRRVmKxWlTX9M1PVBA_BxfBiB56
+    disks:
+      - name: vectorstore
+        mountPath: /app/app/vectorstore
+        sizeGB: 1

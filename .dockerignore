@@ -1,0 +1,12 @@
+.git
+.gitignore
+*.md
+node_modules
+.venv
+__pycache__
+*.pyc
+.env
+.pytest_cache
+.oxlintrc.json
+.vscode
+.idea
